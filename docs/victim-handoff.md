@@ -68,7 +68,7 @@ docker compose exec victim-v1 curl -m3 https://1.1.1.1               # 실패 (�
 
 ## 9. 수령 절차 (B·C)
 ```
-git clone <repo-url>
+git clone https://github.com/EricMin0122/log4shell-lab.git
 cd log4shell-lab
 docker compose up -d victim-v1 victim-v2 victim-v3
 docker compose exec victim-v1 curl -m3 http://victim-v3:8983/solr/   # 200 OK면 정상
