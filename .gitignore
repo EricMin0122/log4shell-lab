@@ -1,0 +1,11 @@
+# 캡처·로그
+*.pcap
+*.pcapng
+*.log
+captures/
+
+# OS·에디터
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

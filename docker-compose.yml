@@ -1,0 +1,25 @@
+name: log4shell-lab
+
+networks:
+  labnet:
+    driver: bridge
+    internal: true          # 외부 인터넷 차단(격리). 호스트 UI 필요시 이 줄 제거
+
+services:
+  victim-v1:            # cond-1: log4j 2.14.1 + JDK 8u102 (vulhub stock)
+    image: vulhub/solr:8.11.0
+    networks: [labnet]
+    ports:
+      - "8983:8983"       # internal 상태에서는 호스트 접근 불가(제거 시 활성)
+
+  victim-v2:            # cond-2/3: log4j 2.14.1 + JDK 8u212 (built)
+    build: ./victim-newjdk
+    networks: [labnet]
+    ports:
+      - "8982:8983"
+
+  victim-v3:            # cond-4: log4j 2.17.1 (control)
+    image: solr:8.11.2
+    networks: [labnet]
+    ports:
+      - "8984:8983"
