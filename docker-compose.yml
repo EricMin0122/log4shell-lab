@@ -17,6 +17,12 @@ services:
     image: log4shell-lab/victim-v1
     container_name: victim-v1
     networks: [labnet]
+    environment:
+      # 베이스 openjdk:8u181-jre 는 Debian stretch(deb9u1) 패키지 빌드라
+      # 버전 번호(8u181)는 유지하면서 trustURLCodebase=false 백포트가 들어가 있음
+      # => 기본값이 false 라 원격 클래스 로딩이 안 됨. 조건①(RCE) 재현을 위해 강제로 true.
+      # (Tomcat catalina.sh 가 JAVA_OPTS 를 JVM 기동에 반영)
+      - "JAVA_OPTS=-Dcom.sun.jndi.ldap.object.trustURLCodebase=true"
     ports:
       - "8080:8080"         # internal:true 상태에서는 호스트 접근 불가(이 줄 제거 시 활성)
 
