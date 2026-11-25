@@ -1,25 +1,41 @@
 name: log4shell-lab
 
+# 모든 victim 은 동일한 취약 웹앱(vuln-app, Tomcat 배포)을 운반체로 쓰고,
+# log4j 버전과 JDK 버전만 조건별로 달리한다. 운반체가 Tomcat 이므로
+# 클래스패스에 org.apache.naming.factory.BeanFactory(+el-api)가 상주 => 조건 3(로컬 가젯) 성립.
+
 networks:
   labnet:
     driver: bridge
-    internal: true          # 외부 인터넷 차단(격리). 호스트 UI 필요시 이 줄 제거
+    internal: true          # 외부 인터넷 차단(격리). 호스트 브라우저 접근이 필요하면 이 줄 제거
 
 services:
-  victim-v1:            # cond-1: log4j 2.14.1 + JDK 8u102 (vulhub stock)
-    image: vulhub/solr:8.11.0
+  victim-v1:                # 조건 1: log4j 2.14.1 + JDK 8u181 (<8u191) -> 원격 클래스 로딩(RCE)
+    build:
+      context: .
+      dockerfile: victim-v1/Dockerfile
+    image: log4shell-lab/victim-v1
+    container_name: victim-v1
     networks: [labnet]
     ports:
-      - "8983:8983"       # internal 상태에서는 호스트 접근 불가(제거 시 활성)
+      - "8080:8080"         # internal:true 상태에서는 호스트 접근 불가(이 줄 제거 시 활성)
 
-  victim-v2:            # cond-2/3: log4j 2.14.1 + JDK 8u212 (built)
-    build: ./victim-newjdk
+  victim-v2:                # 조건 2/3: log4j 2.14.1 + JDK 8u212 (>=8u191) -> 원격 차단 / 로컬 가젯 우회
+    build:
+      context: .
+      dockerfile: victim-v2/Dockerfile
+    image: log4shell-lab/victim-v2
+    container_name: victim-v2
     networks: [labnet]
     ports:
-      - "8982:8983"
+      - "8081:8080"
 
-  victim-v3:            # cond-4: log4j 2.17.1 (control)
-    image: solr:8.11.2
+  victim-v3:                # 조건 4(대조군): log4j 2.17.1 + JDK 11 -> JNDI 질의 자체 차단
+    build:
+      context: .
+      dockerfile: victim-v3/Dockerfile
+    image: log4shell-lab/victim-v3
+    container_name: victim-v3
     networks: [labnet]
     ports:
-      - "8984:8983"
+      - "8082:8080"

@@ -9,3 +9,7 @@ captures/
 Thumbs.db
 .vscode/
 .idea/
+
+# 빌드 산출물
+vuln-app/target/
+target/
