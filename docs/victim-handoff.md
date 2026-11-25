@@ -24,6 +24,12 @@
 > trustURLCodebase 의 경계는 8u191 이므로 8u102·8u181 모두 기본값 `true` 로 ①이 동일하게 동작한다.
 > 보고서에 8u102 표기가 꼭 필요하면 `victim-v1/Dockerfile` 의 `FROM openjdk:8u181-jre` 한 줄만 교체하면 된다(동작 불변).
 
+**추가 고정 (조건③ 필수):** victim-v2 의 Tomcat 은 **9.0.56 (Server built: Dec 2 2021)** 으로 고정한다.
+2022년 보안 하드닝에서 `BeanFactory` 의 **`forceString` 옵션이 제거**되어, 최신 Tomcat(9.0.124 등)에서는
+`BeanFactory→ELProcessor` 로컬 가젯이 막힌다(증상: `javax.naming.NamingException: No set method found for property [...]`).
+사건 시점 버전으로 되돌려 ③ 를 당시 우회 그대로 재현한다. 최종 베이스 `openjdk:8u212-jre`·JDK 패치레벨(8u212)은
+그대로라 **②(원격 로딩 차단)에는 영향 없다.** (victim-v1/v3 는 ①·④ 가 Tomcat 로컬 가젯과 무관하므로 버전 고정 불필요.)
+
 ---
 
 ## 1. 개요
@@ -45,6 +51,7 @@ Log4j 2 취약점(CVE-2021-44228)이 **log4j 버전**과 **JDK 버전**에 따�
 - **②와 ③은 같은 victim-v2** 를 쓰고 **페이로드만** 다르다.
 - **①↔②** 는 WAR·log4j 가 동일하고 **JDK 패치레벨만** 다르다(8u181 vs 8u212).
   8u191 을 경계로 `trustURLCodebase` 기본값이 `true→false` 로 바뀌는 것이 차이의 원인이다.
+- **victim-v2 Tomcat 은 9.0.56 고정**(③ 가젯의 `forceString` 전제 때문 — §0 참조). victim-v1/v3 는 Tomcat 버전 무관.
 
 ## 3. 취약점 성립 구조 (왜 터지나)
 
@@ -53,7 +60,8 @@ Log4j 2 취약점(CVE-2021-44228)이 **log4j 버전**과 **JDK 버전**에 따�
   `${jndi:...}` 가 평가되어 JNDI 질의가 발생한다(2.14.1).
 - Tomcat 은 `catalina.jar`(`org.apache.naming.factory.BeanFactory`)와
   `el-api.jar`(`javax.el.ELProcessor`)를 common 클래스로더로 제공한다 → 웹앱에서 **로컬 참조로
-  해석 가능** → 원격 로딩이 막힌 신JDK 에서도 ③(로컬 가젯 RCE)이 성립한다.
+  해석 가능** → 원격 로딩이 막힌 신JDK 에서도 ③(로컬 가젯 RCE)이 성립한다. 단 이 가젯은 `BeanFactory` 의
+  `forceString` 이 살아있는 Tomcat 에서만 통하므로, victim-v2 는 Tomcat **9.0.56** 으로 고정한다(§0 참조).
 - v3 는 log4j 2.17.1 이라 `JndiLookup` 자체가 없어 ④(질의 미발생)가 된다.
 
 ## 4. 저장소 구조
@@ -67,7 +75,7 @@ log4shell-lab/
 │       ├── java/com/example/VulnServlet.java   # 요청 파라미터/헤더 로깅
 │       └── resources/log4j2.xml
 ├── victim-v1/Dockerfile          # 2.14.1 + 8u181
-├── victim-v2/Dockerfile          # 2.14.1 + 8u212
+├── victim-v2/Dockerfile          # 2.14.1 + 8u212 + Tomcat 9.0.56(고정, ③용)
 ├── victim-v3/Dockerfile          # 2.17.1 + JDK 11
 └── docs/victim-handoff.md
 ```
@@ -108,7 +116,9 @@ docker compose exec victim-v3 java -version      # 11.0.x
 docker compose exec victim-v1 sh -c "ls /usr/local/tomcat/webapps/ROOT/WEB-INF/lib/log4j-core-*.jar"   # 2.14.1
 docker compose exec victim-v3 sh -c "ls /usr/local/tomcat/webapps/ROOT/WEB-INF/lib/log4j-core-*.jar"   # 2.17.1
 
-# 조건 3 전제: Tomcat 가젯 클래스 상주 확인 (catalina.jar / el-api.jar)
+# 조건 3 전제(1): victim-v2 Tomcat 버전 = 9.0.56 (forceString 유지 버전)
+docker compose exec victim-v2 catalina.sh version | grep "Server version"   # Apache Tomcat/9.0.56
+# 조건 3 전제(2): Tomcat 가젯 클래스 상주 확인 (catalina.jar / el-api.jar)
 docker compose exec victim-v2 sh -c "ls /usr/local/tomcat/lib/catalina.jar /usr/local/tomcat/lib/*el-api*.jar"
 
 # Tomcat 기동 + 앱 배포 확인

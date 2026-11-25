@@ -13,7 +13,14 @@ COPY vuln-app/src ./src
 ARG LOG4J_VERSION=2.14.1
 RUN mvn -q -DskipTests -Dlog4j.version=${LOG4J_VERSION} package
 
-FROM tomcat:9.0-jre8-temurin AS tomcatdist
+# Tomcat 배포본(안정 경로 /usr/local/tomcat) — 조건③ 전제인 로컬 가젯(BeanFactory+ELProcessor) 상주.
+# [조건③ 핵심] 2022년 보안 하드닝에서 BeanFactory 의 forceString 옵션이 제거되어,
+#   최신 Tomcat(9.0.124 등)에서는 BeanFactory->ELProcessor 로컬 가젯이 막힌다
+#   (victim 로그: javax.naming.NamingException: No set method found for property [...]).
+#   => 사건 시점(2021.12~2022.1)인 9.0.56 으로 고정해 forceString 이 살아있는 상태를 재현(조건③ 성립).
+#   tomcatdist 는 /usr/local/tomcat(= catalina.jar 버전)만 제공하므로, 최종 베이스 openjdk:8u212-jre 와
+#   JDK 패치레벨(8u212, >=8u191)은 그대로 => 원격 로딩 차단(조건②)에는 영향 없음.
+FROM tomcat:9.0.56-jre8-temurin AS tomcatdist
 
 FROM openjdk:8u212-jre
 COPY --from=tomcatdist /usr/local/tomcat /usr/local/tomcat
